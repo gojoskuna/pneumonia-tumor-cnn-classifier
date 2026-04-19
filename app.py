@@ -4,9 +4,18 @@ from flask import Flask, render_template, request
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing import image
 
+print("Starting Flask app...")
 app = Flask(__name__)
 
-model = load_model("model.h5", compile=False)
+model = None
+
+def get_model():
+    print("Loading model...")
+    global model
+    if model is None:
+        from tensorflow.keras.models import load_model
+        model = load_model("model.h5", compile=False)
+    return model
 
 classes = ["Brain_Tumor", "Normal", "Pneumonia"]
 
@@ -31,7 +40,7 @@ def index():
             img_array = image.img_to_array(img) / 255.0
             img_array = np.expand_dims(img_array, axis=0)
 
-            prediction = model.predict(img_array)
+            prediction = get_model().predict(img_array)
             predicted_class = classes[np.argmax(prediction)]
 
             result = predicted_class
