@@ -23,18 +23,28 @@ UPLOAD_FOLDER = os.path.join("static", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 @app.route("/", methods=["GET", "POST"])
+@app.route("/", methods=["GET", "POST"])
 def index():
     result = None
     img_path = None
 
     if request.method == "POST":
+
+        if "file" not in request.files:
+            return "No file uploaded"
+
         file = request.files["file"]
 
-        if file:
-            filepath = os.path.join(UPLOAD_FOLDER, file.filename)
-            file.save(filepath)
+        if file.filename == "":
+            return "Empty file"
 
-            img_path = filepath
+        filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+        file.save(filepath)
+
+        img_path = filepath
+
+        try:
+            print("Processing:", filepath)
 
             img = image.load_img(filepath, target_size=(224,224))
             img_array = image.img_to_array(img) / 255.0
@@ -44,6 +54,10 @@ def index():
             predicted_class = classes[np.argmax(prediction)]
 
             result = predicted_class
+
+        except Exception as e:
+            print("ERROR:", str(e))
+            return f"Error: {str(e)}"
 
     return render_template("index.html", result=result, image=img_path)
 

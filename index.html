@@ -1,34 +1,25 @@
-@app.route("/", methods=["GET", "POST"])
-def index():
-    result = None
-    img_path = None
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Medical Detection</title>
+</head>
+<body>
 
-    if request.method == "POST":
+<h2>Upload Image</h2>
 
-        if "file" not in request.files:
-            return "No file uploaded"
+<form method="POST" enctype="multipart/form-data">
+    <input type="file" name="file" required>
+    <button type="submit">Predict</button>
+</form>
 
-        file = request.files["file"]
+{% if image %}
+    <h3>Uploaded Image:</h3>
+    <img src="{{ image }}" width="200">
+{% endif %}
 
-        if file.filename == "":
-            return "Empty file"
+{% if result %}
+    <h3>Result: {{ result }}</h3>
+{% endif %}
 
-        filepath = os.path.join(UPLOAD_FOLDER, file.filename)
-        file.save(filepath)
-
-        img_path = filepath
-
-        try:
-            img = image.load_img(filepath, target_size=(224,224))
-            img_array = image.img_to_array(img) / 255.0
-            img_array = np.expand_dims(img_array, axis=0)
-
-            prediction = get_model().predict(img_array)
-            predicted_class = classes[np.argmax(prediction)]
-
-            result = predicted_class
-
-        except Exception as e:
-            return f"Error: {str(e)}"
-
-    return render_template("index.html", result=result, image=img_path)
+</body>
+</html>
