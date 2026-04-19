@@ -10,11 +10,11 @@ app = Flask(__name__)
 model = None
 
 def get_model():
-    print("Loading model...")
     global model
     if model is None:
+        print("Loading model...")
         from tensorflow.keras.models import load_model
-        model = load_model("model.h5", compile=False)
+        model = load_model("model.h5", compile=False, safe_mode=False)
     return model
 
 classes = ["Brain_Tumor", "Normal", "Pneumonia"]
