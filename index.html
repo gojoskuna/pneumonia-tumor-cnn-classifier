@@ -1,86 +1,34 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>AI Disease Detection</title>
-    <style>
-        body {
-            font-family: Arial;
-            background: linear-gradient(to right, #4facfe, #00f2fe);
-            text-align: center;
-            color: white;
-        }
-        
+@app.route("/", methods=["GET", "POST"])
+def index():
+    result = None
+    img_path = None
 
-        .container {
-            margin-top: 50px;
-            background: white;
-            padding: 30px;
-            border-radius: 15px;
-            width: 420px;
-            margin-left: auto;
-            margin-right: auto;
-            color: black;
-            box-shadow: 0 0 20px rgba(0,0,0,0.2);
-        }
+    if request.method == "POST":
 
-        button {
-            padding: 10px 20px;
-            border: none;
-            background: #4facfe;
-            color: white;
-            border-radius: 8px;
-            cursor: pointer;
-        }
+        if "file" not in request.files:
+            return "No file uploaded"
 
-        button:hover {
-            background: #2f8cff;
-        }
+        file = request.files["file"]
 
-        img {
-            margin-top: 15px;
-            width: 220px;
-            border-radius: 10px;
-        }
+        if file.filename == "":
+            return "Empty file"
 
-        .result {
-            font-size: 22px;
-            margin-top: 15px;
-            font-weight: bold;
-        }
+        filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+        file.save(filepath)
 
-        .tumor {
-            color: purple;
-        }
+        img_path = filepath
 
-        .pneumonia {
-            color: red;
-        }
-    </style>
-</head>
-<body>
+        try:
+            img = image.load_img(filepath, target_size=(224,224))
+            img_array = image.img_to_array(img) / 255.0
+            img_array = np.expand_dims(img_array, axis=0)
 
-<h1>🧠 AI Medical Detection</h1>
+            prediction = get_model().predict(img_array)
+            predicted_class = classes[np.argmax(prediction)]
 
-<div class="container">
+            result = predicted_class
 
-    <form method="POST" enctype="multipart/form-data">
-        <input type="file" name="file" required><br><br>
-        <button type="submit">Predict</button>
-    </form>
+        except Exception as e:
+            return f"Error: {str(e)}"
 
-    {% if image %}
-        <h3>Uploaded Image</h3>
-        <img src="{{ image }}">
-    {% endif %}
-
-    {% if result %}
-        <div class="result 
-            {% if result == 'Brain_Tumor' %}tumor{% else %}pneumonia{% endif %}">
-            Result: {{ result }}
-        </div>
-    {% endif %}
-
-</div>
-
-</body>
-</html>
+    return render_template("index.html", result=result, image=img_path)
