@@ -11,8 +11,7 @@ model = load_model("model.h5")
 
 classes = ["Brain_Tumor", "Normal", "Pneumonia"]
 
-UPLOAD_FOLDER = "static/uploads/"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+UPLOAD_FOLDER = os.path.join("static", "uploads")
 
 @app.route("/", methods=["GET", "POST"])
 def index():
