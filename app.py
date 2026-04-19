@@ -6,12 +6,12 @@ from tensorflow.keras.preprocessing import image
 
 app = Flask(__name__)
 
-model = load_model("model.h5")
-
+model = load_model("model.h5", compile=False)
 
 classes = ["Brain_Tumor", "Normal", "Pneumonia"]
 
 UPLOAD_FOLDER = os.path.join("static", "uploads")
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -39,4 +39,5 @@ def index():
     return render_template("index.html", result=result, image=img_path)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
