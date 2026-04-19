@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Disease Detection</title>
+    <style>
+        body {
+            font-family: Arial;
+            background: linear-gradient(to right, #4facfe, #00f2fe);
+            text-align: center;
+            color: white;
+        }
+        
+
+        .container {
+            margin-top: 50px;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            width: 420px;
+            margin-left: auto;
+            margin-right: auto;
+            color: black;
+            box-shadow: 0 0 20px rgba(0,0,0,0.2);
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            background: #4facfe;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #2f8cff;
+        }
+
+        img {
+            margin-top: 15px;
+            width: 220px;
+            border-radius: 10px;
+        }
+
+        .result {
+            font-size: 22px;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+
+        .tumor {
+            color: purple;
+        }
+
+        .pneumonia {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+
+<h1>🧠 AI Medical Detection</h1>
+
+<div class="container">
+
+    <form method="POST" enctype="multipart/form-data">
+        <input type="file" name="file" required><br><br>
+        <button type="submit">Predict</button>
+    </form>
+
+    {% if image %}
+        <h3>Uploaded Image</h3>
+        <img src="{{ image }}">
+    {% endif %}
+
+    {% if result %}
+        <div class="result 
+            {% if result == 'Brain_Tumor' %}tumor{% else %}pneumonia{% endif %}">
+            Result: {{ result }}
+        </div>
+    {% endif %}
+
+</div>
+
+</body>
+</html>
