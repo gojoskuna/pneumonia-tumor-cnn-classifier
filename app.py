@@ -24,17 +24,41 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 model = None
 
 classes = ["Brain_Tumor", "Normal", "Pneumonia"]
+from tensorflow.keras.layers import Dense
 
+class CompatibleDense(Dense):
+
+    @classmethod
+    def from_config(cls, config):
+        config = dict(config)
+
+        quantization_config = config.pop(
+            "quantization_config", None
+        )
+
+        if quantization_config is not None:
+            raise ValueError(
+                "This model uses quantization settings "
+                "that require separate compatibility handling."
+            )
+
+        return cls(**config)
+        
 def get_model():
     global model
 
     if model is None:
         print("Loading model...")
+
         model = load_model(
             MODEL_PATH,
             compile=False,
-            safe_mode=False
+            safe_mode=False,
+            custom_objects={
+                "Dense": CompatibleDense
+            }
         )
+
         print("Model loaded successfully!")
 
     return model
