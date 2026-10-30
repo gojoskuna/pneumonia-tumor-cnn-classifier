@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedVision AI | Clinical PACS Workstation</title>
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --primary: #0284c7;
+            --primary-hover: #0369a1;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --danger: #dc2626;
+            --success: #16a34a;
+            --loader-bg: rgba(255,255,255,0.8);
+            --loader-color: #0284c7;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", RobRoboto, Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 40px 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        /* Loader overlay */
+        .loader-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--loader-bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            visibility: hidden;
+        }
+        .loader-overlay.active { visibility: visible; }
+        .spinner {
+            border: 4px solid var(--border);
+            border-top: 4px solid var(--loader-color);
+            border-radius: 50%;
+            width: 48px;
+            height: 48px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .header { text-align: center; margin-bottom: 32px; }
+        .header h1 { margin: 0; font-size: 28px; font-weight: 700; }
+        .header p { margin: 8px 0 0; color: var(--text-muted); font-size: 15px; }
+        
+        .dashboard-container { display: grid; grid-template-columns: 1fr; gap: 24px; width: 100%; max-width: 960px; }
+        @media (min-width: 768px) { .dashboard-container { grid-template-columns: 1fr 1fr; } }
+        
+        .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 32px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); height: 100%; box-sizing: border-box; }
+        .card h2 { margin-top: 0; font-size: 18px; margin-bottom: 20px; color: var(--text-main); border-bottom: 1px solid var(--border); padding-bottom: 12px; }
+        
+        .upload-area { border: 2px dashed var(--border); border-radius: 10px; padding: 40px 20px; text-align: center; cursor: pointer; transition: all 0.2s ease; background-color: #f8fafc; margin-bottom: 20px; }
+        .upload-area:hover, .upload-area.dragover { border-color: var(--primary); background-color: #f0f9ff; }
+        .upload-area input[type="file"] { display: none; }
+        .upload-icon { font-size: 36px; color: var(--primary); margin-bottom: 12px; }
+        .upload-text { font-size: 15px; color: var(--text-main); font-weight: 600; margin-bottom: 6px; }
+        .file-hint { font-size: 13px; color: var(--text-muted); }
+        
+        #client-preview-container { display: none; margin-top: 20px; }
+        #client-preview-image { max-width: 100%; max-height: 220px; border-radius: 8px; border: 1px solid var(--border); object-fit: contain; }
+        
+        button.btn-submit { width: 100%; padding: 14px; border: none; background: var(--primary); color: white; font-size: 15px; font-weight: 600; border-radius: 8px; cursor: pointer; transition: background 0.2s; }
+        button.btn-submit:hover:not(:disabled) { background: var(--primary-hover); }
+        button.btn-submit:disabled { background: #94a3b8; cursor: not-allowed; }
+        
+        button.btn-reset { margin-top: 10px; width: 100%; padding: 10px; border: 1px solid var(--border); background: #fff; color: var(--text-main); border-radius: 6px; cursor: pointer; }
+        button.btn-reset:hover { background: var(--bg-color); }
+        
+        .result-content { text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 200px; }
+        .result-content img { max-width: 100%; max-height: 280px; border-radius: 8px; border: 1px solid var(--border); object-fit: contain; margin-bottom: 20px; }
+        .badge { display: inline-block; padding: 10px 24px; border-radius: 9999px; font-size: 16px; font-weight: 600; letter-spacing: 0.3px; }
+        .badge.tumor { background: #fdf2f8; color: #be185d; border: 1px solid #fbcfe8; }
+        .badge.pneumonia { background: #fef2f2; color: var(--danger); border: 1px solid #fecaca; }
+        .badge.normal { background: #f0fdf4; color: var(--success); border: 1px solid #bbf7d0; }
+        
+        .empty-state { color: var(--text-muted); font-size: 15px; text-align: center; margin-top: 40px; }
+        .disclaimer { margin-top: 32px; font-size: 12px; color: var(--text-muted); text-align: center; max-width: 600px; line-height: 1.5; }
+
+        :root {
+            --bg-main: #090d16;
+            --panel-bg: #111827;
+            --panel-border: #1f2937;
+            --sub-panel-bg: #090d16;
+            --badge-empty-bg: #1e293b;
+            --accent: #0ea5e9;
+            --accent-hover: #0284c7;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --success: #10b981;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        body.light-mode {
+            --bg-main: #f1f5f9;
+            --panel-bg: #ffffff;
+            --panel-border: #e2e8f0;
+            --sub-panel-bg: #f8fafc;
+            --badge-empty-bg: #e2e8f0;
+            --accent: #0284c7;
+            --accent-hover: #0369a1;
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            transition: background-color 0.25s ease, color 0.25s ease;
+        }
+
+        .navbar {
+            background-color: var(--panel-bg);
+            border-bottom: 1px solid var(--panel-border);
+            padding: 14px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background-color 0.25s ease, border-color 0.25s ease;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .brand-dot {
+            width: 10px;
+            height: 10px;
+            background-color: var(--accent);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent);
+        }
+
+        .nav-controls {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .status-pill {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: var(--success);
+            padding: 6px 14px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .theme-toggle-btn {
+            background: var(--sub-panel-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--panel-border);
+            padding: 7px 14px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .theme-toggle-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .workstation {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 24px;
+            padding: 24px 32px;
+            flex: 1;
+            max-width: 1600px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        @media (max-width: 1024px) {
+            .workstation {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            box-shadow: var(--shadow);
+            transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        .panel-header {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            font-weight: 600;
+            border-bottom: 1px solid var(--panel-border);
+            padding-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .upload-zone {
+            display: block;
+            border: 2px dashed var(--panel-border);
+            border-radius: 10px;
+            padding: 35px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: var(--sub-panel-bg);
+        }
+
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: var(--accent);
+            background: rgba(14, 165, 233, 0.05);
+        }
+
+        .upload-zone input[type="file"] {
+            display: none;
+        }
+
+        .file-metadata {
+            display: none;
+            background: var(--sub-panel-bg);
+            border: 1px solid var(--panel-border);
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-align: left;
+            line-height: 1.6;
+        }
+
+        .btn-primary {
+            width: 100%;
+            padding: 14px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: var(--accent-hover);
+        }
+
+        .btn-primary:disabled {
+            background: #64748b;
+            color: #e2e8f0;
+            cursor: wait;
+        }
+
+        .btn-secondary {
+            background: var(--sub-panel-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--panel-border);
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .viewer-grid {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 20px;
+            height: 100%;
+        }
+
+        @media (max-width: 1280px) {
+            .viewer-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .canvas-box {
+            background: #000000;
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            position: relative;
+            height: 460px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        #medical-image {
+            max-width: 90%;
+            max-height: 90%;
+            object-fit: contain;
+            transition: transform 0.1s ease;
+        }
+
+        .scanner-beam {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: var(--accent);
+            box-shadow: 0 0 20px 4px var(--accent);
+            animation: scan 2s infinite linear;
+            z-index: 10;
+        }
+
+        @keyframes scan {
+            0% { top: 0%; }
+            50% { top: 98%; }
+            100% { top: 0%; }
+        }
+
+        .toolbar {
+            background: var(--sub-panel-bg);
+            border: 1px solid var(--panel-border);
+            padding: 12px 16px;
+            border-radius: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .tool-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .tool-group input[type="range"] {
+            width: 90px;
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+
+        .findings-box {
+            background: var(--sub-panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .result-badge {
+            padding: 16px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 16px;
+            text-align: center;
+        }
+
+        .result-badge.waiting {
+            background: var(--badge-empty-bg);
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .result-badge.tumor {
+            background: rgba(239, 68, 68, 0.12);
+            color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.35);
+        }
+
+        .result-badge.pneumonia {
+            background: rgba(245, 158, 11, 0.12);
+            color: var(--warning);
+            border: 1px solid rgba(245, 158, 11, 0.35);
+        }
+
+        .result-badge.normal {
+            background: rgba(16, 185, 129, 0.12);
+            color: var(--success);
+            border: 1px solid rgba(16, 185, 129, 0.35);
+        }
+
+        .meta-list {
+            list-style: none;
+            font-size: 13px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .meta-list li {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--panel-border);
+            padding-bottom: 8px;
+            color: var(--text-secondary);
+        }
+
+        .meta-list li span:last-child {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .disclaimer {
+            text-align: center;
+            padding: 16px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            border-top: 1px solid var(--panel-border);
+        }
+
+        @media print {
+            .navbar, .panel:first-child, .toolbar, .btn-secondary { display: none !important; }
+            body, .panel, .findings-box { background: white; color: black; border: none; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loader overlay for processing feedback -->
+    <div class="loader-overlay" id="loader">
+        <div class="spinner"></div>
+    </div>
+
+    <nav class="navbar">
+        <div class="brand">
+            <div class="brand-dot"></div>
+            MedVision PACS <span style="color: var(--text-secondary); font-weight: 400; font-size: 14px;">| Diagnostic Workstation v2.4</span>
+        </div>
+        
+        <div class="nav-controls">
+            <div class="status-pill">
+                ● CNN Inference Engine Ready
+            </div>
+            <button type="button" class="theme-toggle-btn" id="theme-toggle" onclick="toggleTheme()">
+                <span id="theme-icon">☀️</span>
+                <span id="theme-label">Light Mode</span>
+            </button>
+        </div>
+    </nav>
+
+    <div class="workstation">
+        
+        <!-- Left Panel: Input & Controls -->
+        <div class="panel">
+            <div class="panel-header">
+                <span>1. Scan Acquisition</span>
+            </div>
+
+            <form method="POST" enctype="multipart/form-data" id="upload-form" style="display: flex; flex-direction: column; gap: 20px;">
+                <label for="file-input" class="upload-zone" id="drop-zone">
+                    <div style="font-size: 32px; margin-bottom: 8px;">🔬</div>
+                    <div style="font-weight: 600; font-size: 14px; margin-bottom: 4px;" id="drop-text">Click or Drop Image Scan Here</div>
+                    <div style="font-size: 12px; color: var(--text-secondary);">Supports PNG, JPG, JPEG (Max 10MB)</div>
+                    <input type="file" id="file-input" name="file" accept="image/*">
+                </label>
+
+                <div class="file-metadata" id="file-meta">
+                    <div><strong>File:</strong> <span id="meta-name">-</span></div>
+                    <div><strong>Size:</strong> <span id="meta-size">-</span></div>
+                    <div><strong>Dimensions:</strong> <span id="meta-dim">-</span></div>
+                </div>
+
+                <button type="submit" class="btn-primary" id="submit-btn">Run AI Diagnostic Analysis</button>
+            </form>
+        </div>
+
+        <!-- Right Panel: Interactive PACS Viewer & Report -->
+        <div class="panel">
+            <div class="panel-header">
+                <span>2. Interactive Radiology Viewer & Telemetry</span>
+                <button type="button" class="btn-secondary" onclick="window.print()">🖨️ Export Report</button>
+            </div>
+
+            <div class="toolbar">
+                <div class="tool-group">
+                    <label>🔍 Zoom</label>
+                    <input type="range" id="zoom-slider" min="1" max="3" step="0.1" value="1" oninput="applyFilters()">
+                </div>
+                <div class="tool-group">
+                    <label>☀️ Brightness</label>
+                    <input type="range" id="bright-slider" min="50" max="200" value="100" oninput="applyFilters()">
+                </div>
+                <div class="tool-group">
+                    <label>🌗 Contrast</label>
+                    <input type="range" id="contrast-slider" min="50" max="200" value="100" oninput="applyFilters()">
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn-secondary" onclick="toggleInvert()">🔄 Invert Scan</button>
+                    <button type="button" class="btn-secondary" onclick="resetFilters()">↺ Reset</button>
+                </div>
+            </div>
+
+            <div class="viewer-grid">
+                <div class="canvas-box">
+                    <div class="scanner-beam" id="scanner-beam"></div>
+
+                    <img id="medical-image" 
+                         src="{% if image %}{{ image }}{% endif %}" 
+                         alt="Medical Scan" 
+                         style="{% if not image %}display: none;{% endif %}">
+
+                    <div id="empty-prompt" style="color: #94a3b8; font-size: 14px; text-align: center; {% if image %}display: none;{% endif %}">
+                        No active scan loaded in viewport.<br>Select an image on the left to inspect.
+                    </div>
+                </div>
+
+                <div class="findings-box">
+                    <div style="font-size: 13px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">
+                        Diagnostic Classification
+                    </div>
+
+                    <div id="result-container">
+                        {% if result %}
+                            {% if result == 'Brain_Tumor' %}
+                                <div class="result-badge tumor">⚠️ Brain Tumor Detected</div>
+                            {% elif result == 'Pneumonia' %}
+                                <div class="result-badge pneumonia">⚠️ Pneumonia Detected</div>
+                            {% else %}
+                                <div class="result-badge normal">✓ {{ result }}</div>
+                            {% endif %}
+                        {% else %}
+                            <div class="result-badge waiting">
+                                Awaiting Scan Execution
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <ul class="meta-list" style="margin-top: auto;">
+                        <li><span>Architecture</span> <span>Unified CNN Classifier</span></li>
+                        <li><span>Status</span> <span id="report-status">Ready</span></li>
+                        <li><span>Timestamp</span> <span id="report-time">--:--</span></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="disclaimer">
+        <strong>CLINICAL DECISION SUPPORT NOTICE:</strong> This PACS interface is for academic and research demonstration. Automated CNN predictions must be corroborated by a board-certified radiologist.
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const medicalImage = document.getElementById('medical-image');
+        const emptyPrompt = document.getElementById('empty-prompt');
+        const fileMeta = document.getElementById('file-meta');
+        const uploadForm = document.getElementById('upload-form');
+        const submitBtn = document.getElementById('submit-btn');
+        const scannerBeam = document.getElementById('scanner-beam');
+        const resultContainer = document.getElementById('result-container');
+
+        let isInverted = false;
+
+        // Theme Toggle Logic
+        function toggleTheme() {
+            const body = document.body;
+            body.classList.toggle('light-mode');
+            const isLight = body.classList.contains('light-mode');
+            localStorage.setItem('medvision_theme', isLight ? 'light' : 'dark');
+            updateThemeButton(isLight);
+        }
+
+        function updateThemeButton(isLight) {
+            document.getElementById('theme-icon').textContent = isLight ? '🌙' : '☀️';
+            document.getElementById('theme-label').textContent = isLight ? 'Dark Mode' : 'Light Mode';
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('report-time').textContent = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            
+            const savedTheme = localStorage.getItem('medvision_theme');
+            if (savedTheme === 'light') {
+                document.body.classList.add('light-mode');
+                updateThemeButton(true);
+            }
+
+            if (window.location.protocol === 'file:') {
+                medicalImage.style.display = 'none';
+                emptyPrompt.style.display = 'block';
+                resultContainer.innerHTML = `<div class="result-badge waiting">Awaiting Scan Execution</div>`;
+            }
+        });
+
+        // Interactive Filters
+        function applyFilters() {
+            const zoom = document.getElementById('zoom-slider').value;
+            const bright = document.getElementById('bright-slider').value;
+            const contrast = document.getElementById('contrast-slider').value;
+            const invertVal = isInverted ? 100 : 0;
+
+            medicalImage.style.transform = `scale(${zoom})`;
+            medicalImage.style.filter = `brightness(${bright}%) contrast(${contrast}%) invert(${invertVal}%)`;
+        }
+
+        function toggleInvert() {
+            isInverted = !isInverted;
+            applyFilters();
+        }
+
+        function resetFilters() {
+            document.getElementById('zoom-slider').value = 1;
+            document.getElementById('bright-slider').value = 100;
+            document.getElementById('contrast-slider').value = 100;
+            isInverted = false;
+            applyFilters();
+        }
+
+        // Drag & Drop
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
+            dropZone.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); }, false);
+        });
+
+        ['dragenter', 'dragover'].forEach(evt => {
+            dropZone.addEventListener(evt, () => dropZone.classList.add('dragover'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(evt => {
+            dropZone.addEventListener(evt, () => dropZone.classList.remove('dragover'), false);
+        });
+
+        dropZone.addEventListener('drop', e => {
+            fileInput.files = e.dataTransfer.files;
+            handleFiles(fileInput.files);
+        });
+
+        fileInput.addEventListener('change', function() {
+            handleFiles(this.files);
+        });
+
+        function handleFiles(files) {
+            if (files && files[0]) {
+                const file = files[0];
+                document.getElementById('drop-text').textContent = file.name;
+                document.getElementById('meta-name').textContent = file.name;
+                document.getElementById('meta-size').textContent = (file.size / 1024).toFixed(1) + ' KB';
+                fileMeta.style.display = 'block';
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    medicalImage.src = e.target.result;
+                    medicalImage.style.display = 'block';
+                    emptyPrompt.style.display = 'none';
+                    resetFilters();
+
+                    const tempImg = new Image();
+                    tempImg.onload = function() {
+                        document.getElementById('meta-dim').textContent = `${this.width} × ${this.height} px`;
+                    };
+                    tempImg.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // Form Submission & Demo Mode
+        uploadForm.addEventListener('submit', function(e) {
+            if (!fileInput.files || fileInput.files.length === 0) {
+                e.preventDefault();
+                alert('Please select or drop a medical scan image first!');
+                return;
+            }
+
+            submitBtn.textContent = '⚡ Analyzing Neural Pathways...';
+            scannerBeam.style.display = 'block';
+            document.getElementById('report-status').textContent = 'Scanning...';
+
+            if (window.location.protocol === 'file:') {
+                e.preventDefault();
+                submitBtn.disabled = true;
+
+                setTimeout(() => {
+                    scannerBeam.style.display = 'none';
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Run AI Diagnostic Analysis';
+                    document.getElementById('report-status').textContent = 'Verified (Demo Mode)';
+                    resultContainer.innerHTML = `<div class="result-badge tumor">⚠️ Brain Tumor Detected (Demo)</div>`;
+                }, 2200);
+            } else {
+                setTimeout(() => {
+                    submitBtn.disabled = true;
+                }, 50);
+            }
+        });
+    </script>
+</body>
+</html>
